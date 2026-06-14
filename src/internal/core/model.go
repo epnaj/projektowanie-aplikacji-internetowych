@@ -27,7 +27,6 @@ type Project struct {
 	OwnerId   ID
 	Name      string
 	CreatedAt time.Time
-	Users     []*User
 }
 
 // type Organisation struct {

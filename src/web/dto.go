@@ -1,24 +1,43 @@
 package web
 
 import (
+	"errors"
 	"time"
 
 	"github.com/epnaj/projektowanie-aplikacji-internetowych/internal/core"
 )
 
 // data transfer objects
-// yet to be used
 
 // Auth
 
 type registerRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8,max=72"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// Validate enforces a syntactically valid email and a bcrypt-safe password
+// length (bcrypt ignores bytes past 72).
+func (r registerRequest) Validate() error {
+	if err := validateEmail(r.Email); err != nil {
+		return err
+	}
+	return validateLen("password", r.Password, 8, 72)
 }
 
 type loginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+func (r loginRequest) Validate() error {
+	if err := validateEmail(r.Email); err != nil {
+		return err
+	}
+	if r.Password == "" {
+		return errors.New("password is required")
+	}
+	return nil
 }
 
 type userResponse struct {
@@ -34,11 +53,19 @@ func toUserResponse(u *core.User) userResponse {
 // Project
 
 type createProjectRequest struct {
-	Name string `json:"name" validate:"required,min=2,max=80"`
+	Name string `json:"name"`
+}
+
+func (r createProjectRequest) Validate() error {
+	return validateLen("name", r.Name, 2, 80)
 }
 
 type updateProjectRequest struct {
-	Name string `json:"name" validate:"required,min=2,max=80"`
+	Name string `json:"name"`
+}
+
+func (r updateProjectRequest) Validate() error {
+	return validateLen("name", r.Name, 2, 80)
 }
 
 type projectResponse struct {
@@ -63,12 +90,25 @@ func toProjectResponses(projects []core.Project) []projectResponse {
 // Link
 
 type createLinkRequest struct {
-	Name string `json:"name" validate:"required,min=2,max=80"`
+	Name string `json:"name"`
+}
+
+func (r createLinkRequest) Validate() error {
+	return validateLen("name", r.Name, 2, 80)
 }
 
 type updateLinkRequest struct {
-	Name   *string `json:"name,omitempty" validate:"omitempty,min=2,max=80"`
+	Name   *string `json:"name,omitempty"`
 	Active *bool   `json:"active,omitempty"`
+}
+
+// Validate only checks fields that were provided: this is a PATCH-style payload
+// where omitted fields mean "leave unchanged".
+func (r updateLinkRequest) Validate() error {
+	if r.Name != nil {
+		return validateLen("name", *r.Name, 2, 80)
+	}
+	return nil
 }
 
 type linkResponse struct {
