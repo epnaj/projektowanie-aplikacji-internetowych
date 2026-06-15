@@ -1,0 +1,25 @@
+{{define "page_dashboard"}}<!doctype html>
+<html lang="en">
+<head>{{template "head" .}}</head>
+<body>
+  <header>
+    <h1>Projects</h1>
+    <button hx-post="/logout">Log out</button>
+  </header>
+  <form hx-post="/app/projects" hx-target="#projects" hx-swap="beforeend"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+    <input name="name" placeholder="New project name" required>
+    <button type="submit">Add project</button>
+  </form>
+  <p id="form-error" class="error"></p>
+  <ul id="projects">
+    {{range .Projects}}{{template "project_row" .}}{{end}}
+  </ul>
+</body>
+</html>{{end}}
+
+{{define "project_row"}}<li id="project-{{.Id}}">
+  <a href="/app/projects/{{.Id}}">{{.Name}}</a>
+  <button class="del" hx-delete="/app/projects/{{.Id}}" hx-target="#project-{{.Id}}"
+          hx-swap="outerHTML" hx-confirm="Delete this project and its links?">Delete</button>
+</li>{{end}}

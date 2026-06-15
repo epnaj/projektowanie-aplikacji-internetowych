@@ -26,7 +26,7 @@ type Store struct {
 	projects map[core.ID]core.Project
 	links    map[core.ID]core.Link
 	stats    map[statKey]core.Statistic
-	buffer   map[statKey]int64
+	buf      *Buffer
 }
 
 func New() *Store {
@@ -36,7 +36,7 @@ func New() *Store {
 		projects: make(map[core.ID]core.Project),
 		links:    make(map[core.ID]core.Link),
 		stats:    make(map[statKey]core.Statistic),
-		buffer:   make(map[statKey]int64),
+		buf:      NewBuffer(),
 	}
 }
 
@@ -46,7 +46,7 @@ func (s *Store) Users() core.UserRepository           { return userRepo{s} }
 func (s *Store) Projects() core.ProjectRepository     { return projectRepo{s} }
 func (s *Store) Links() core.LinkRepository           { return linkRepo{s} }
 func (s *Store) Statistics() core.StatisticRepository { return statRepo{s} }
-func (s *Store) Buffer() core.HitBuffer               { return hitBuffer{s} }
+func (s *Store) Buffer() core.HitBuffer               { return s.buf }
 
 // Users
 
@@ -285,30 +285,4 @@ func inRange(t, from, to time.Time) bool {
 		return false
 	}
 	return true
-}
-
-// Hit buffer (write-behind cache)
-
-type hitBuffer struct{ s *Store }
-
-func (b hitBuffer) Increment(_ context.Context, linkId core.ID, hour time.Time) error {
-	b.s.mu.Lock()
-	defer b.s.mu.Unlock()
-	b.s.buffer[statKey{linkId: linkId, unixHour: hour.Unix()}]++
-	return nil
-}
-
-func (b hitBuffer) Drain(_ context.Context) ([]core.LinkCounter, error) {
-	b.s.mu.Lock()
-	defer b.s.mu.Unlock()
-	out := make([]core.LinkCounter, 0, len(b.s.buffer))
-	for key, hits := range b.s.buffer {
-		out = append(out, core.LinkCounter{
-			LinkId: key.linkId,
-			Hour:   time.Unix(key.unixHour, 0).UTC(),
-			Hits:   hits,
-		})
-	}
-	b.s.buffer = make(map[statKey]int64)
-	return out, nil
 }

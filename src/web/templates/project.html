@@ -1,0 +1,47 @@
+{{define "page_project"}}<!doctype html>
+<html lang="en">
+<head>{{template "head" .}}</head>
+<body>
+  <header>
+    <h1>{{.Project.Name}}</h1>
+    <a href="/app">&larr; all projects</a>
+  </header>
+
+  <h2>Links</h2>
+  <form hx-post="/app/projects/{{.Project.Id}}/links" hx-target="#links" hx-swap="beforeend"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+    <input name="name" placeholder="New link name" required>
+    <button type="submit">Add link</button>
+  </form>
+  <p id="form-error" class="error"></p>
+  <ul id="links">
+    {{range .Links}}{{template "link_row" .}}{{end}}
+  </ul>
+
+  <h2>Statistics</h2>
+  <button hx-get="/app/projects/{{.Project.Id}}/stats" hx-target="#stats" hx-swap="innerHTML">
+    Refresh stats
+  </button>
+  <div id="stats" hx-get="/app/projects/{{.Project.Id}}/stats" hx-trigger="load" hx-swap="innerHTML"></div>
+</body>
+</html>{{end}}
+
+{{define "link_row"}}<li id="link-{{.Id}}">
+  <span>
+    <strong>{{.Name}}</strong>
+    {{if .Active}}<span class="muted">active</span>{{else}}<span class="muted">inactive</span>{{end}}<br>
+    <code>&lt;img src="/pixel/{{.LinkHash}}.gif" width="1" height="1" alt=""&gt;</code>
+  </span>
+  <button hx-post="/app/links/{{.Id}}/toggle" hx-target="#link-{{.Id}}" hx-swap="outerHTML">
+    {{if .Active}}Deactivate{{else}}Activate{{end}}
+  </button>
+  <button class="del" hx-delete="/app/links/{{.Id}}" hx-target="#link-{{.Id}}"
+          hx-swap="outerHTML" hx-confirm="Delete this link?">Delete</button>
+</li>{{end}}
+
+{{define "stats_table"}}{{if .}}<table>
+  <thead><tr><th>Hour (UTC)</th><th>Hits</th></tr></thead>
+  <tbody>
+    {{range .}}<tr><td>{{.Hour | fmtTime}} UTC</td><td>{{.Hits}}</td></tr>{{end}}
+  </tbody>
+</table>{{else}}<p class="muted">No hits recorded yet.</p>{{end}}{{end}}

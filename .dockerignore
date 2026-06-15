@@ -1,0 +1,7 @@
+.git
+docs
+adr
+*.md
+Dockerfile
+build_and_run.sh
+run-docker.sh

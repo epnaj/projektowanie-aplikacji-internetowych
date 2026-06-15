@@ -7,13 +7,18 @@ import (
 	"github.com/epnaj/projektowanie-aplikacji-internetowych/internal/core"
 )
 
-// parseID reads the {id} path segment as a core.ID.
-func parseID(r *http.Request) (core.ID, bool) {
-	id, err := strconv.ParseUint(r.PathValue("id"), 10, 64)
+// pathID reads the named path segment as a core.ID.
+func pathID(r *http.Request, name string) (core.ID, bool) {
+	id, err := strconv.ParseUint(r.PathValue(name), 10, 64)
 	if err != nil {
 		return 0, false
 	}
 	return core.ID(id), true
+}
+
+// parseID reads the {id} path segment as a core.ID.
+func parseID(r *http.Request) (core.ID, bool) {
+	return pathID(r, "id")
 }
 
 func (h *Handler) listProjects(w http.ResponseWriter, r *http.Request) {

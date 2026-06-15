@@ -92,10 +92,12 @@ func (m *SessionManager) UserID(r *http.Request) (core.ID, bool) {
 	if !ok {
 		return 0, false
 	}
+
 	exp, err := strconv.ParseInt(expStr, 10, 64)
 	if err != nil || time.Now().Unix() >= exp {
 		return 0, false
 	}
+
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		return 0, false

@@ -1,0 +1,49 @@
+# Brings up the whole stack with one command: `docker compose up`.
+#   db      - PostgreSQL (system of record)
+#   migrate - golang-migrate CLI; applies db/migrations once, then exits
+#   app     - the Go server, started only after migrations succeed
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: pixel
+      POSTGRES_PASSWORD: pixel
+      POSTGRES_DB: pixeltracker
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pixel -d pixeltracker"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    image: migrate/migrate:v4.18.1
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./db/migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://pixel:pixel@db:5432/pixeltracker?sslmode=disable"
+      - "up"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      ADDR: ":8080"
+      DATABASE_URL: "postgres://pixel:pixel@db:5432/pixeltracker?sslmode=disable"
+      SESSION_KEY: "dev-secret-change-me-in-production"
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:

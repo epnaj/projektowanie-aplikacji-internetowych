@@ -32,6 +32,27 @@ func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// requireAuthPage is the HTML counterpart of requireAuth: instead of a 401 it
+// sends the visitor to the login page. For an htmx-issued request it uses the
+// HX-Redirect header so the browser navigates rather than swapping the login
+// page into a fragment
+func (h *Handler) requireAuthPage(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := h.sessions.UserID(r)
+		if !ok {
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", "/login")
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		ctx := context.WithValue(r.Context(), userIDContextKey, id)
+		next(w, r.WithContext(ctx))
+	}
+}
+
 // statusRecorder captures the response code for structured access logging
 type statusRecorder struct {
 	http.ResponseWriter

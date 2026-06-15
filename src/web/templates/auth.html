@@ -1,0 +1,30 @@
+{{define "page_login"}}<!doctype html>
+<html lang="en">
+<head>{{template "head" .}}</head>
+<body>
+  <h1>Pixel Tracker</h1>
+  <p class="muted">Log in to manage your tracking pixels.</p>
+  <form hx-post="/login" hx-target="#form-error" hx-swap="innerHTML">
+    <input name="email" type="email" placeholder="email" required autofocus>
+    <input name="password" type="password" placeholder="password" required>
+    <button type="submit">Log in</button>
+  </form>
+  <p id="form-error" class="error"></p>
+  <p>No account? <a href="/register">Register</a></p>
+</body>
+</html>{{end}}
+
+{{define "page_register"}}<!doctype html>
+<html lang="en">
+<head>{{template "head" .}}</head>
+<body>
+  <h1>Create an account</h1>
+  <form hx-post="/register" hx-target="#form-error" hx-swap="innerHTML">
+    <input name="email" type="email" placeholder="email" required autofocus>
+    <input name="password" type="password" placeholder="password (min 8 chars)" required>
+    <button type="submit">Register</button>
+  </form>
+  <p id="form-error" class="error"></p>
+  <p>Already have an account? <a href="/login">Log in</a></p>
+</body>
+</html>{{end}}
