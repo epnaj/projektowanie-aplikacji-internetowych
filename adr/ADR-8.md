@@ -18,7 +18,7 @@ Redis jako główna baza - odrzucony osobno (ADR-5): nie jest relacyjny, trwało
 ---
 ### Uzasadnienie
 
-To problem dyktuje model, nie odwrotnie. Relacje właścicielskie i ograniczenia integralności (klucze obce z kaskadą, UNIQUE na e-mailu i haszu) chcemy mieć egzekwowane przez bazę, a nie ręcznie w aplikacji, bo ręczna spójność jest niewyczerpanym źródłem błędów. Postgres daje TIMESTAMPTZ na bezstrefowy znacznik godziny oraz `INSERT ... ON CONFLICT (link_id, hour) DO UPDATE SET hits = statistics.hits + EXCLUDED.hits`, który idealnie pasuje do okresowego zrzutu bufora (ADR-5) - jedno zapytanie albo tworzy kubełek, albo dolicza do istniejącego. Serwerowy charakter bazy pozwala w przyszłości oddzielić aplikację od danych bez zmiany kodu, bo adapter już siedzi za interfejsem (ADR-10). Uruchomienie w kontenerze jest trywialne - oficjalny obraz `postgres:17-alpine` z healthcheckiem.
+To problem dyktuje model, nie odwrotnie. Relacje właścicielskie i ograniczenia integralności (klucze obce z kaskadą, UNIQUE na e-mailu i haszu) chcemy mieć egzekwowane przez bazę, a nie ręcznie w aplikacji, bo ręczna spójność jest niewyczerpanym źródłem błędów. Postgres daje TIMESTAMPTZ na bezstrefowy znacznik godziny oraz `INSERT ... ON CONFLICT (link_id, hour) DO UPDATE SET hits = statistics.hits + EXCLUDED.hits`, który idealnie pasuje do okresowego zrzutu bufora (ADR-5) - jedno zapytanie albo tworzy kubełek, albo dolicza do istniejącego. Serwerowy charakter bazy pozwala w przyszłości oddzielić aplikację od danych bez zmiany kodu, bo adapter już siedzi za interfejsem. 
 
 ---
 ### Trade-offy
