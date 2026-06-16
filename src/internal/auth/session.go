@@ -14,7 +14,7 @@ import (
 
 const (
 	sessionName   = "pixel_session"
-	maxAgeSeconds = 7 * 24 * 60 * 60 // one week
+	maxAgeSeconds = 24 * 60 * 60 // one day
 )
 
 // encoding is URL-safe base64 without padding, so cookie values stay free of
