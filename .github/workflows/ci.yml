@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # Postgres for the adapter integration test. The test applies the migration
+    # itself, so an empty database is enough. It is skipped unless
+    # TEST_DATABASE_URL is set, so we set it here to actually exercise the adapter.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: pixel
+          POSTGRES_PASSWORD: pixel
+          POSTGRES_DB: pixeltracker
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pixel -d pixeltracker"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: src
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { echo "gofmt found unformatted files:"; gofmt -l .; exit 1; }
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: build
+        run: go build ./...
+
+      - name: test
+        env:
+          TEST_DATABASE_URL: postgres://pixel:pixel@localhost:5432/pixeltracker?sslmode=disable
+        run: go test -race -cover ./...
