@@ -1,1 +1,8 @@
 docs/
+
+# Runtime log files (written by the app; rotated in place)
+logs/
+
+# Coverage artifacts
+cover.out
+coverage.out

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/epnaj/projektowanie-aplikacji-internetowych/internal/auth"
 	"github.com/epnaj/projektowanie-aplikacji-internetowych/internal/core"
+	"github.com/epnaj/projektowanie-aplikacji-internetowych/internal/logging"
 	"github.com/epnaj/projektowanie-aplikacji-internetowych/internal/store/memory"
 	"github.com/epnaj/projektowanie-aplikacji-internetowych/internal/store/postgres"
 	"github.com/epnaj/projektowanie-aplikacji-internetowych/web"
@@ -32,7 +34,8 @@ type repoProvider interface {
 }
 
 func main() {
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	closeLog := setupLogging()
+	defer closeLog()
 
 	addr := envOr("ADDR", ":8080")
 
@@ -43,7 +46,7 @@ func main() {
 	// Storage engine: Postgres when DATABASE_URL is set, otherwise an in-memory
 	// store for local development. The write-behind hit buffer is always in
 	// memory so the pixel hot path never hits the database.
-	store, buffer, closeStore := openStore(ctx)
+	store, buffer, ready, closeStore := openStore(ctx)
 	defer closeStore()
 
 	hasher := auth.NewBcryptHasher()
@@ -55,7 +58,7 @@ func main() {
 	linkService := core.NewLinkService(store.Links(), store.Projects())
 	statService := core.NewStatisticService(store.Statistics(), store.Links(), store.Projects(), buffer)
 
-	handler := web.NewHandler(userService, projectService, linkService, statService, sessions)
+	handler := web.NewHandler(userService, projectService, linkService, statService, sessions, ready)
 
 	srv := &http.Server{
 		Addr:              addr,
@@ -107,14 +110,15 @@ func runFlushWorker(ctx context.Context, stats *core.StatisticService) {
 
 // openStore selects the storage engine. With DATABASE_URL set it opens a
 // Postgres pool (failing fast if it cannot connect); otherwise it falls back to
-// the in-memory store. It returns the repo provider, the hit buffer, and a
-// cleanup func to release resources on shutdown.
-func openStore(ctx context.Context) (repoProvider, core.HitBuffer, func()) {
+// the in-memory store. It returns the repo provider, the hit buffer, a
+// readiness check (nil for in-memory, which is always ready), and a cleanup
+// func to release resources on shutdown.
+func openStore(ctx context.Context) (repoProvider, core.HitBuffer, func(context.Context) error, func()) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		slog.Warn("DATABASE_URL not set; using in-memory store (data is not persisted)")
 		store := memory.New()
-		return store, store.Buffer(), func() {}
+		return store, store.Buffer(), nil, func() {}
 	}
 
 	pool, err := pgxpool.New(ctx, dsn)
@@ -127,7 +131,36 @@ func openStore(ctx context.Context) (repoProvider, core.HitBuffer, func()) {
 		os.Exit(1)
 	}
 	slog.Info("using postgres store")
-	return postgres.New(pool), memory.NewBuffer(), pool.Close
+	return postgres.New(pool), memory.NewBuffer(), pool.Ping, pool.Close
+}
+
+// setupLogging configures the default structured logger. It always writes JSON
+// to stdout; when a log file is configured it tees to a size-rotating file as
+// well. LOG_FILE semantics: unset -> default local path; empty -> stdout only
+// (the right choice in containers, where the runtime captures stdout). Returns
+// a close func to flush/close the file on shutdown.
+func setupLogging() func() {
+	out := io.Writer(os.Stdout)
+	closeLog := func() {}
+
+	logFile, ok := os.LookupEnv("LOG_FILE")
+	if !ok {
+		logFile = "logs/app.log"
+	}
+	if logFile != "" {
+		rw, err := logging.NewRotatingWriter(logFile, 10<<20, 5)
+		if err != nil {
+			slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+			slog.Error("open log file", "path", logFile, "err", err)
+			os.Exit(1)
+		}
+		out = io.MultiWriter(os.Stdout, rw)
+		closeLog = func() { _ = rw.Close() }
+	}
+
+	slog.SetDefault(slog.New(slog.NewJSONHandler(out, nil)))
+	slog.Info("logging configured", "file", logFile, "stdout", true)
+	return closeLog
 }
 
 func envOr(key, fallback string) string {

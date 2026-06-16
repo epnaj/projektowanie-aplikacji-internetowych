@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/epnaj/projektowanie-aplikacji-internetowych/internal/auth"
@@ -15,6 +16,9 @@ type Handler struct {
 	links    *core.LinkService
 	stats    *core.StatisticService
 	sessions *auth.SessionManager
+	// ready reports whether backing dependencies are reachable, for /readyz.
+	// nil means "always ready" (in-memory mode).
+	ready func(context.Context) error
 }
 
 func NewHandler(
@@ -23,6 +27,7 @@ func NewHandler(
 	links *core.LinkService,
 	stats *core.StatisticService,
 	sessions *auth.SessionManager,
+	ready func(context.Context) error,
 ) *Handler {
 	return &Handler{
 		users:    users,
@@ -30,11 +35,16 @@ func NewHandler(
 		links:    links,
 		stats:    stats,
 		sessions: sessions,
+		ready:    ready,
 	}
 }
 
 func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
+
+	// Health probes (unauthenticated)
+	mux.HandleFunc("GET /healthz", h.healthz)
+	mux.HandleFunc("GET /readyz", h.readyz)
 
 	// Public auth
 	mux.HandleFunc("POST /api/register", h.register)
